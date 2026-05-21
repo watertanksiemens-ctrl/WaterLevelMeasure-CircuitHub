@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Circuit Hub Dashboard</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #d3d9e0, #e6e9f0, #cfd9df);
+            --glass-bg: rgba(255, 255, 255, 0.35);
+            --glass-border: rgba(255, 255, 255, 0.5);
+            --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+            
+            --text-main: #1d1d1f;
+            --text-muted: #6e6e73;
+            --accent-blue: #007aff;
+            --accent-blue-hover: #005bb5;
+            --chart-grid: rgba(0, 0, 0, 0.06);
+            --warning-red: #ff3b30;
+            --success-green: #34c759;
+        }
+
+        [data-theme="dark"] {
+            --bg-gradient: linear-gradient(135deg, #090f1a, #131c2e, #0c1524);
+            --glass-bg: rgba(18, 28, 46, 0.45);
+            --glass-border: rgba(255, 255, 255, 0.06);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+            
+            --text-main: #f5f5f7;
+            --text-muted: #a1a1a6;
+            --accent-blue: #0a84ff;
+            --accent-blue-hover: #409cff;
+            --chart-grid: rgba(255, 255, 255, 0.05);
+        }
+
+        * {
+            box-sizing: border-box;
+            transition: background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
+        }
+
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+            background: var(--bg-gradient);
+            background-size: 200% 200%;
+            animation: gradientMove 15s ease infinite;
+            color: var(--text-main); 
+            margin: 0; 
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        @keyframes gradientMove {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 720px;
+            padding: 25px;
+            position: relative;
+            z-index: 10;
+        }
+
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            border-radius: 24px;
+        }
+
+        #splash-screen {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #060b14; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.8s ease-out, visibility 0.8s;
+            overflow: hidden;
+        }
+
+        .splash-grid {
+            position: absolute;
+            width: 100%; height: 100%;
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            z-index: 1;
+        }
+
+        .circuit-svg {
+            position: absolute;
+            width: 100%; height: 100%; z-index: 2;
+        }
+
+        .trace {
+            fill: none; stroke: #0a84ff; stroke-width: 1.5;
+            stroke-dasharray: 2000; stroke-dashoffset: 2000;
+            animation: drawLine 2.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+        }
+
+        .trace.delay-1 { animation-delay: 0.3s; }
+        .trace.delay-2 { animation-delay: 0.6s; }
+        .trace.delay-3 { animation-delay: 0.9s; }
+
+        .node { fill: #00f0ff; opacity: 0; animation: popNode 0.5s ease-out forwards; }
+        .node.delay-1 { animation-delay: 2.3s; }
+        .node.delay-2 { animation-delay: 2.6s; }
+        .node.delay-3 { animation-delay: 2.9s; }
+
+        .hex {
+            fill: rgba(10, 132, 255, 0.05); stroke: #00f0ff; stroke-width: 2.5;
+            stroke-dasharray: 1000; stroke-dashoffset: 1000;
+            animation: drawLine 2s ease-in-out forwards 1.8s, glowHex 3s infinite alternate 3.8s;
+        }
+
+        .splash-text {
+            fill: #ffffff; font-family: -apple-system, sans-serif; font-size: 46px;
+            font-weight: 800; letter-spacing: 6px; text-anchor: middle;
+            opacity: 0; animation: textReveal 2s ease-out forwards 2.5s;
+        }
+
+        @keyframes drawLine { to { stroke-dashoffset: 0; } }
+        @keyframes popNode {
+            0% { opacity: 0; transform: scale(0); }
+            50% { opacity: 1; transform: scale(1.5); filter: drop-shadow(0 0 8px #00f0ff); }
+            100% { opacity: 1; transform: scale(1); filter: drop-shadow(0 0 4px #00f0ff); }
+        }
+        @keyframes textReveal {
+            0% { opacity: 0; transform: translateY(10px); filter: blur(10px); }
+            100% { opacity: 1; transform: translateY(0); filter: blur(0); text-shadow: 0 0 25px rgba(0, 240, 255, 0.6); }
+        }
+        @keyframes glowHex {
+            from { filter: drop-shadow(0 0 5px rgba(0,240,255,0.3)); }
+            to { filter: drop-shadow(0 0 20px rgba(0,240,255,0.8)); }
+        }
+
+        .theme-toggle {
+            position: absolute; top: 25px; right: 25px; width: 48px; height: 48px;
+            border-radius: 50%; display: none; align-items: center; justify-content: center;
+            font-size: 1.2rem; cursor: pointer; z-index: 100; padding: 0; color: var(--text-main);
+        }
+
+        #login-screen {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 85vh; opacity: 0; animation: fadeIn 1s ease forwards; animation-delay: 5.5s;
+        }
+
+        .login-card { padding: 45px 40px; width: 100%; max-width: 380px; text-align: center; }
+        .login-card h2 { margin-top: 0; font-weight: 800; font-size: 1.8rem; margin-bottom: 8px; letter-spacing: -0.5px;}
+        .login-card p { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 35px; font-weight: 500;}
+
+        input[type="password"], .config-input {
+            width: 100%; padding: 16px; border-radius: 14px; border: 1px solid var(--glass-border);
+            background-color: rgba(255,255,255,0.1); color: var(--text-main); font-size: 1.2rem;
+            margin-bottom: 25px; outline: none; text-align: center;
+        }
+        input[type="password"] { letter-spacing: 4px; }
+        input[type="password"]:focus, .config-input:focus { border: 1px solid var(--accent-blue); box-shadow: 0 0 15px rgba(0, 122, 255, 0.2);}
+
+        button.primary-btn {
+            width: 100%; padding: 16px; border-radius: 14px; background-color: var(--accent-blue);
+            color: #FFFFFF; border: none; font-size: 1.1rem; font-weight: 600; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 122, 255, 0.3);
+        }
+        button.primary-btn:hover { background-color: var(--accent-blue-hover); transform: translateY(-1px); }
+
+        .error-msg { color: var(--warning-red); font-size: 0.9rem; margin-top: 20px; display: none; font-weight: 600; }
+
+        #dashboard-screen {
+            display: none; animation: fadeIn 0.6s ease forwards; padding-top: 10px; height: 95vh; overflow-y: auto;
+        }
+        
+        #dashboard-screen::-webkit-scrollbar { display: none; }
+        #dashboard-screen { -ms-overflow-style: none; scrollbar-width: none; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+        .header { margin-bottom: 25px; }
+        h1 { font-size: 2.4rem; font-weight: 800; margin: 0 0 8px 0; letter-spacing: -1px; }
+
+        .status { color: var(--text-muted); font-size: 1rem; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; background-color: var(--text-muted); }
+        .status-dot.active { background-color: var(--success-green); box-shadow: 0 0 12px rgba(52, 199, 89, 0.5); }
+        .status-dot.offline { background-color: var(--warning-red); box-shadow: 0 0 12px rgba(255, 59, 48, 0.5); }
+
+        .metrics-grid { display: flex; gap: 15px; margin-bottom: 20px; }
+        .metric-card { padding: 25px 20px; flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; }
+        .lbl { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 1.5px; }
+        .val { font-size: 3rem; font-weight: 800; margin-top: 10px; color: var(--text-main); letter-spacing: -1.5px; }
+
+        /* FIXED CONFIG BAR FOR PHONE UI */
+        .config-bar { 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between;
+            gap: 15px; 
+            padding: 20px; 
+            margin-bottom: 20px; 
+        }
+        .config-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .config-input { 
+            width: 75px; 
+            padding: 10px; 
+            font-size: 1.1rem; 
+            margin-bottom: 0; 
+            border-radius: 10px;
+        }
+
+        /* Responsive Layout Overrides for Mobile */
+        @media (max-width: 480px) {
+            .config-bar {
+                flex-direction: column;
+                align-items: stretch;
+                text-align: center;
+                gap: 15px;
+            }
+            .config-controls {
+                width: 100%;
+                justify-content: center;
+            }
+            .config-input {
+                flex-grow: 1;
+                max-width: 120px;
+            }
+        }
+
+        .graph-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 0 5px;}
+        .graph-title { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.5px;}
+
+        select { 
+            background: var(--glass-bg); color: var(--text-main); padding: 8px 14px; 
+            border-radius: 10px; border: 1px solid var(--glass-border); font-size: 0.9rem; 
+            font-weight: 600; outline: none; cursor: pointer; backdrop-filter: blur(10px);
+        }
+
+        .chart-card { padding: 20px; height: 280px; position: relative; margin-bottom: 40px; }
+    </style>
+</head>
+<body>
+
+    <div id="splash-screen">
+        <div class="splash-grid"></div>
+        <svg class="circuit-svg" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid slice">
+            <polyline points="0,220 320,220 320,280 340,280" class="trace" />
+            <circle cx="340" cy="280" r="4" class="node delay-1" />
+            <polyline points="0,380 150,380 150,320 340,320" class="trace delay-1" />
+            <circle cx="340" cy="320" r="4" class="node delay-2" />
+            <polyline points="0,260 200,260 200,200 360,200" class="trace delay-2" />
+            <circle cx="360" cy="200" r="4" class="node delay-3" />
+            <polyline points="1000,280 660,280 660,250 640,250" class="trace delay-1" />
+            <circle cx="640" cy="250" r="4" class="node delay-2" />
+            <polyline points="1000,340 750,340 750,380 620,380" class="trace delay-2" />
+            <circle cx="620" cy="380" r="4" class="node delay-3" />
+            <polyline points="1000,200 800,200 800,300 660,300" class="trace" />
+            <circle cx="660" cy="300" r="4" class="node delay-1" />
+            <polyline points="450,0 450,180 400,180 400,210" class="trace delay-2" />
+            <circle cx="400" cy="210" r="4" class="node delay-3" />
+            <polyline points="550,0 550,150 580,150 580,220" class="trace delay-1" />
+            <circle cx="580" cy="220" r="4" class="node delay-2" />
+            <polyline points="480,600 480,450 420,450 420,390" class="trace" />
+            <circle cx="420" cy="390" r="4" class="node delay-1" />
+            <polyline points="520,600 520,420 560,420 560,370" class="trace delay-1" />
+            <circle cx="560" cy="370" r="4" class="node delay-2" />
+            <polygon points="578,345 500,390 422,345 422,255 500,210 578,255" class="hex" />
+            <text x="500" y="315" class="splash-text">CIRCUIT HUB</text>
+        </svg>
+    </div>
+
+    <div class="app-container">
+        
+        <button class="theme-toggle glass-panel" onclick="toggleTheme()" id="theme-btn">🌙</button>
+        
+        <div id="login-screen">
+            <div class="login-card glass-panel">
+                <h2>Access</h2>
+                <p>Authorized personnel only.</p>
+                <input type="password" id="passcode" placeholder="•••••">
+                <button class="primary-btn" onclick="checkLogin()">Authenticate</button>
+                <div id="error-msg" class="error-msg">Incorrect passcode.</div>
+            </div>
+        </div>
+
+        <div id="dashboard-screen">
+            <div class="header">
+                <h1>Dashboard</h1>
+                <div class="status">
+                    <div id="statusDot" class="status-dot"></div>
+                    <span id="connectionText">Initializing telemetry...</span>
+                </div>
+            </div>
+            
+            <div class="metrics-grid">
+                <div class="metric-card glass-panel" id="waterCard">
+                    <div class="lbl">Water Level</div>
+                    <div id="levelVal" class="val">--<span style="font-size:1.3rem; color:var(--text-muted); font-weight: 600;"> cm</span></div>
+                </div>
+            </div>
+
+            <div class="config-bar glass-panel">
+                <div style="flex-grow: 1;">
+                    <div class="lbl" style="margin-bottom: 5px;">Alert Threshold Limit</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">Drops below this level (cm) trigger warnings.</div>
+                </div>
+                <div class="config-controls">
+                    <input type="number" id="thresholdInput" class="config-input" step="0.1" value="6.0">
+                    <button class="primary-btn" style="width: auto; padding: 10px 20px;" onclick="saveThreshold()">Save</button>
+                </div>
+            </div>
+
+            <div class="graph-header">
+                <div class="graph-title">Live Timeline</div>
+                <select id="timeRange" onchange="updateChartAxes()">
+                    <option value="60000">Past 1 Min</option>
+                    <option value="3600000" selected>Past 1 Hour</option>
+                    <option value="86400000">Past 1 Day</option>
+                </select>
+            </div>
+            
+            <div class="chart-card glass-panel">
+                <canvas id="waterChart"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- GLOBAL VARIABLES ---
+        window.userThreshold = 6.0; 
+        let notificationTriggered = false; // Prevents spamming alerts repeated times
+
+        window.onload = function() {
+            // Request push notification access right at boot-up
+            if ("Notification" in window) {
+                Notification.requestPermission();
+            }
+
+            setTimeout(function() {
+                const splash = document.getElementById('splash-screen');
+                splash.style.opacity = '0'; 
+                setTimeout(() => {
+                    splash.style.visibility = 'hidden';
+                    document.body.style.overflow = 'auto'; 
+                    document.getElementById('passcode').focus(); 
+                }, 800); 
+            }, 5000); 
+        };
+
+        function toggleTheme() {
+            const body = document.documentElement;
+            const btn = document.getElementById('theme-btn');
+            const isDark = body.getAttribute('data-theme') === 'dark';
+            
+            if (isDark) {
+                body.removeAttribute('data-theme');
+                btn.innerText = '🌙';
+            } else {
+                body.setAttribute('data-theme', 'dark');
+                btn.innerText = '☀️';
+            }
+            
+            if (window.waterChart) {
+                const gridColor = isDark ? 'rgba(0, 0, 0, 0.06)' : 'rgba(255, 255, 255, 0.05)';
+                const textColor = isDark ? '#6e6e73' : '#a1a1a6';
+                window.waterChart.options.scales.y.grid.color = gridColor;
+                window.waterChart.options.scales.x.grid.color = gridColor;
+                window.waterChart.options.scales.y.ticks.color = textColor;
+                window.waterChart.options.scales.x.ticks.color = textColor;
+                window.waterChart.update('none');
+            }
+        }
+
+        function checkLogin() {
+            const input = document.getElementById('passcode').value;
+            if (input === '12345') {
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('dashboard-screen').style.display = 'block';
+                document.getElementById('theme-btn').style.display = 'flex'; 
+                startDashboard(); 
+            } else {
+                document.getElementById('error-msg').style.display = 'block';
+            }
+        }
+
+        document.getElementById('passcode').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') checkLogin();
+        });
+
+        // --- VERIFIED FIREBASE WRITE FUNCTION ---
+        function saveThreshold() {
+            const newVal = parseFloat(document.getElementById('thresholdInput').value);
+            if (!isNaN(newVal)) {
+                // Verification Confirm Dialog Check
+                if (confirm(`Are you sure you want to change the warning alert threshold to ${newVal.toFixed(1)} cm?`)) {
+                    firebase.database().ref('config/threshold').set(newVal)
+                        .then(() => {
+                            const btn = document.querySelector('.config-bar button');
+                            const originalText = btn.innerText;
+                            btn.innerText = 'Saved!';
+                            btn.style.backgroundColor = 'var(--success-green)';
+                            setTimeout(() => {
+                                btn.innerText = originalText;
+                                btn.style.backgroundColor = 'var(--accent-blue)';
+                            }, 2000);
+                        });
+                }
+            }
+        }
+
+        function triggerAlertNotification(currentLevel) {
+            if ("Notification" in window && Notification.permission === "granted" && !notificationTriggered) {
+                new Notification("⚠ CRITICAL WATER ALERT", {
+                    body: `The water level has fallen to ${currentLevel.toFixed(1)} cm! (Threshold: ${window.userThreshold.toFixed(1)} cm)`,
+                    icon: "https://cdn-icons-png.flaticon.com/512/4214/4214953.png"
+                });
+                notificationTriggered = true; // Lock out until safe state resets it
+            }
+        }
+
+        function startDashboard() {
+            const firebaseConfig = {
+                databaseURL: "https://water-level-monitoring-8a0f5-default-rtdb.firebaseio.com/"
+            };
+            if (!firebase.apps.length) {
+                firebase.initializeApp(firebaseConfig);
+            }
+            const db = firebase.database();
+
+            db.ref('config/threshold').on('value', (snapshot) => {
+                if(snapshot.exists()) {
+                    window.userThreshold = snapshot.val();
+                    document.getElementById('thresholdInput').value = window.userThreshold;
+                }
+            });
+
+            window.masterDataHistory = []; 
+            window.lastPacketReceivedTime = 0;
+            
+            const ctx = document.getElementById('waterChart').getContext('2d');
+            let gradientFill = ctx.createLinearGradient(0, 0, 0, 350);
+            gradientFill.addColorStop(0, 'rgba(10, 132, 255, 0.35)');
+            gradientFill.addColorStop(1, 'rgba(10, 132, 255, 0.0)');
+
+            const isDarkInit = document.documentElement.getAttribute('data-theme') === 'dark';
+            const initGridColor = isDarkInit ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.06)';
+            const initTextColor = isDarkInit ? '#a1a1a6' : '#6e6e73';
+
+            window.waterChart = new Chart(ctx, {
+                type: 'line',
+                data: { 
+                    datasets: [{ 
+                        label: 'Water Level (cm)', 
+                        data: [], 
+                        borderColor: '#0A84FF', 
+                        backgroundColor: 'rgba(10, 132, 255, 0.15)', 
+                        borderWidth: 3, 
+                        pointRadius: 0, 
+                        fill: true, 
+                        tension: 0.4 
+                    }] 
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    animation: { duration: 400 },
+                    layout: { padding: { top: 10 } },
+                    scales: { 
+                        y: { 
+                            beginAtZero: true,
+                            grid: { color: initGridColor, drawBorder: false },
+                            ticks: { color: initTextColor, padding: 10, font: {family: '-apple-system', weight: '500'} }
+                        }, 
+                        x: { 
+                            type: 'linear',
+                            grid: { color: initGridColor, drawBorder: false },
+                            ticks: { 
+                                color: initTextColor, maxTicksLimit: 5, padding: 10,
+                                font: {family: '-apple-system', weight: '500'},
+                                callback: function(value) {
+                                    return new Date(value).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                                }
+                            }
+                        } 
+                    }, 
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(28, 28, 30, 0.85)', titleFont: { size: 13, family: '-apple-system' },
+                            bodyFont: { size: 14, weight: 'bold', family: '-apple-system' },
+                            padding: 12, cornerRadius: 12, displayColors: false, backdropFilter: 'blur(10px)',
+                            callbacks: {
+                                title: function(context) { return new Date(context[0].parsed.x).toLocaleTimeString(); },
+                                label: function(context) { return context.parsed.y + ' cm'; }
+                            }
+                        }
+                    } 
+                }
+            });
+
+            window.waterChart.data.datasets[0].backgroundColor = gradientFill;
+            window.waterChart.update('none');
+
+            setInterval(updateChartAxes, 1000);
+
+            const connectionText = document.getElementById("connectionText");
+            const statusDot = document.getElementById("statusDot");
+            const levelVal = document.getElementById("levelVal");
+            const waterCard = document.getElementById("waterCard");
+
+            db.ref('sensor1').limitToLast(2000).on('value', (snapshot) => {
+                if (snapshot.exists()) {
+                    let tempArray = [];
+                    snapshot.forEach((childSnapshot) => {
+                        const data = childSnapshot.val();
+                        if(data && data.timestamp) {
+                            tempArray.push({ x: data.timestamp * 1000, y: data.level });
+                        }
+                    });
+
+                    if(tempArray.length > 0) {
+                        window.masterDataHistory = tempArray; 
+                        const activePoint = tempArray[tempArray.length - 1];
+                        window.lastPacketReceivedTime = activePoint.x / 1000;
+                        const ageOfPacket = (Date.now() / 1000) - window.lastPacketReceivedTime;
+
+                        if (ageOfPacket <= 4) {
+                            connectionText.innerText = "System Online";
+                            statusDot.className = "status-dot active"; 
+
+                            // Check and fire native notification if it drops below set value
+                            if (activePoint.y <= window.userThreshold) {
+                                levelVal.innerHTML = activePoint.y.toFixed(1) + '<span style="font-size:1.3rem; color:var(--warning-red); font-weight:600;"> cm</span>';
+                                levelVal.style.color = "var(--warning-red)"; 
+                                waterCard.style.borderColor = "var(--warning-red)"; 
+                                
+                                triggerAlertNotification(activePoint.y);
+                            } else {
+                                levelVal.innerHTML = activePoint.y.toFixed(1) + '<span style="font-size:1.3rem; color:var(--text-muted); font-weight:600;"> cm</span>';
+                                levelVal.style.color = "var(--text-main)"; 
+                                waterCard.style.borderColor = "var(--glass-border)";
+                                
+                                notificationTriggered = false; // Reset locker since level recovered
+                            }
+                        }
+                        updateChartAxes(); 
+                    }
+                }
+            });
+
+            setInterval(() => {
+                if (window.lastPacketReceivedTime > 0) {
+                    if ((Date.now() / 1000) - window.lastPacketReceivedTime > 3.5) {
+                        connectionText.innerText = "Hardware Offline";
+                        statusDot.className = "status-dot offline"; 
+                        levelVal.innerHTML = '--<span style="font-size:1.3rem; color:var(--text-muted); font-weight:600;"> cm</span>';
+                        levelVal.style.color = "var(--text-main)";
+                        waterCard.style.borderColor = "var(--glass-border)";
+                    }
+                }
+            }, 1500);
+        }
+
+        window.updateChartAxes = function() {
+            if (!window.waterChart) return;
+            const rangeMilliseconds = parseInt(document.getElementById('timeRange').value);
+            const now = Date.now();
+            window.waterChart.options.scales.x.min = now - rangeMilliseconds;
+            window.waterChart.options.scales.x.max = now;
+            window.waterChart.data.datasets[0].data = window.masterDataHistory.filter(point => point.x >= (now - rangeMilliseconds));
+            window.waterChart.update('none'); 
+        }
+    </script>
+</body>
+</html>
