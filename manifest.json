@@ -1,0 +1,17 @@
+{
+  "short_name": "CircuitHub",
+  "name": "Circuit Hub Dashboard Panel",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/4214/4214953.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#090f1a",
+  "theme-color": "#090f1a",
+  "display": "standalone",
+  "orientation": "portrait"
+}
