@@ -25,13 +25,15 @@
             --accent-blue: #0a84ff;
             --warning-red: #ff3b30;
             --success-green: #34c759;
+            --amber-orange: #ff9500;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         body { background: var(--bg-gradient); color: var(--text-main); padding: 15px; display: flex; justify-content: center; min-height: 100vh; }
         .app-container { width: 100%; max-width: 500px; padding-top: 10px; position: relative; }
         .glass-panel { background: var(--glass-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); border-radius: 24px; }
-        .header { margin-bottom: 15px; text-align: left; }
+        
+        .header { margin-bottom: 15px; }
         h1 { font-size: 2.2rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 5px; }
         .status { color: var(--text-muted); font-size: 0.95rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
         .status-dot { width: 10px; height: 10px; border-radius: 50%; background-color: var(--text-muted); }
@@ -45,11 +47,15 @@
 
         .premium-config-card { padding: 22px; margin-bottom: 20px; border-radius: 24px; }
         .config-title-block { text-align: left; margin-bottom: 18px; }
-        .config-main-row { display: flex; align-items: center; justify-content: space-between; gap: 15px; }
+        .config-main-row { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 15px; }
+        
         .numeric-stepper-box { display: flex; align-items: center; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 16px; padding: 4px; width: 55%; }
         .step-btn { background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border); color: var(--text-main); width: 42px; height: 42px; border-radius: 12px; font-size: 1.4rem; font-weight: bold; cursor: pointer; }
         .config-input { flex-grow: 1; width: 50px; background: transparent; border: none; text-align: center; font-size: 1.3rem; font-weight: 700; color: var(--text-main); outline: none; }
-        .save-action-button { width: 42%; padding: 15px; border-radius: 16px; background: var(--accent-blue); color: #fff; border: none; font-size: 1.05rem; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(0, 122, 255, 0.25); }
+        .save-action-button { width: 42%; padding: 15px; border-radius: 16px; background: var(--accent-blue); color: #fff; border: none; font-size: 1.05rem; font-weight: 700; cursor: pointer; }
+
+        .calibration-divider { border-top: 1px solid var(--glass-border); margin-top: 15px; padding-top: 15px; }
+        .tare-action-button { width: 100%; padding: 14px; border-radius: 14px; background: rgba(255, 149, 0, 0.1); border: 1px dashed var(--amber-orange); color: var(--amber-orange); font-size: 0.95rem; font-weight: 700; cursor: pointer; }
 
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5, 10, 20, 0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 2000; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; }
         .modal-overlay.active { opacity: 1; visibility: visible; }
@@ -60,9 +66,6 @@
         .btn-cancel { background: rgba(255,255,255,0.1); color: var(--text-main); }
         .btn-confirm { background: var(--accent-blue); color: white; }
 
-        .graph-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 0 5px;}
-        .graph-title { font-size: 1.2rem; font-weight: 700; }
-        select { background: var(--glass-bg); color: var(--text-main); padding: 8px 12px; border-radius: 10px; border: 1px solid var(--glass-border); font-size: 0.85rem; font-weight: 600; outline: none; }
         .chart-card { padding: 15px; height: 260px; position: relative; margin-bottom: 20px; }
     </style>
 </head>
@@ -70,11 +73,11 @@
 
     <div id="customModal" class="modal-overlay">
         <div class="modal-box glass-panel">
-            <h3>Confirm Changes</h3>
-            <p id="modalMessage">Are you sure you want to change the warning alert threshold level?</p>
+            <h3 id="modalTitle">Confirm Action</h3>
+            <p id="modalMessage">Are you sure you want to perform this operation?</p>
             <div class="modal-buttons">
                 <button class="modal-btn btn-cancel" onclick="closeCustomModal()">Cancel</button>
-                <button class="modal-btn btn-confirm" onclick="commitThresholdToDatabase()">Yes, Change</button>
+                <button id="modalConfirmBtn" class="modal-btn btn-confirm" onclick="">Confirm</button>
             </div>
         </div>
     </div>
@@ -89,7 +92,7 @@
         </div>
 
         <div id="permissionRequestBanner" class="permission-banner" onclick="requestBrowserNotificationPermission()">
-            🔔 Tap here to authorize high-speed notifications
+            🔔 Tap here to authorize high-speed alerts
         </div>
         
         <div class="metric-card glass-panel" id="waterCard">
@@ -108,37 +111,26 @@
                     <input type="number" id="thresholdInput" class="config-input" step="0.5" value="6.0" readonly>
                     <button class="step-btn" onclick="adjustValue(0.5)">+</button>
                 </div>
-                <button class="save-action-button" onclick="openCustomModal()">Save Level</button>
+                <button class="save-action-button" onclick="openThresholdModal()">Save Level</button>
+            </div>
+
+            <div class="calibration-divider">
+                <button class="tare-action-button" onclick="openCalibrationModal()">🔧 Reset Tank Zero Balance (Auto-Tare)</button>
             </div>
         </div>
 
-        <div class="graph-header">
-            <div class="graph-title">Live Timeline</div>
-            <select id="timeRange" onchange="updateChartAxes()">
-                <option value="60000">Past 1 Min</option>
-                <option value="3600000" selected>Past 1 Hour</option>
-                <option value="86400000">Past 1 Day</option>
-            </select>
-        </div>
-        
         <div class="chart-card glass-panel">
             <canvas id="waterChart"></canvas>
         </div>
     </div>
 
     <script>
-        window.userThreshold = 6.0; 
+        window.userThreshold = 6.0;
         let pendingValueToSave = 6.0;
-        let lastAlertTime = 0;
         let serviceWorkerRegistration = null;
 
-        // --- REGISTER REAL-TIME SERVICE WORKER ---
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js')
-                .then(reg => {
-                    serviceWorkerRegistration = reg;
-                    console.log('High-speed background service worker active.');
-                }).catch(err => console.log('Worker setup error:', err));
+            navigator.serviceWorker.register('/sw.js').then(reg => { serviceWorkerRegistration = reg; });
         }
 
         if (window.Notification && Notification.permission === "granted") {
@@ -146,16 +138,11 @@
         }
 
         function requestBrowserNotificationPermission() {
-            if (!("Notification" in window)) {
-                alert("This device layout does not support notification scripts.");
-                return;
-            }
+            if (!("Notification" in window)) { alert("Unsupported browser environment."); return; }
             Notification.requestPermission().then((permission) => {
                 if (permission === "granted") {
                     document.getElementById('permissionRequestBanner').style.display = 'none';
-                    if (serviceWorkerRegistration) {
-                        serviceWorkerRegistration.showNotification("Circuit Hub Activated", { body: "Real-time hardware tracking online." });
-                    }
+                    if (serviceWorkerRegistration) { serviceWorkerRegistration.showNotification("System Active", { body: "Circuit Hub tracking initialized." }); }
                 }
             });
         }
@@ -166,116 +153,78 @@
             if (!isNaN(current)) { input.value = (current + amount).toFixed(1); }
         }
 
-        function openCustomModal() {
+        function closeCustomModal() { document.getElementById('customModal').classList.remove('active'); }
+
+        function openThresholdModal() {
             pendingValueToSave = parseFloat(document.getElementById('thresholdInput').value);
-            if (!isNaN(pendingValueToSave)) {
-                document.getElementById('modalMessage').innerText = `Are you sure you want to change the threshold level to ${pendingValueToSave.toFixed(1)} cm?`;
-                document.getElementById('customModal').classList.add('active');
-            }
+            document.getElementById('modalTitle').innerText = "Confirm Threshold Change";
+            document.getElementById('modalMessage').innerText = `Are you sure you want to change the safety limit to ${pendingValueToSave.toFixed(1)} cm?`;
+            let cBtn = document.getElementById('modalConfirmBtn');
+            cBtn.className = "modal-btn btn-confirm"; cBtn.innerText = "Yes, Save"; cBtn.onclick = commitThresholdToDatabase;
+            document.getElementById('customModal').classList.add('active');
         }
 
-        function closeCustomModal() {
-            document.getElementById('customModal').classList.remove('active');
-            document.getElementById('thresholdInput').value = window.userThreshold.toFixed(1);
+        function openCalibrationModal() {
+            document.getElementById('modalTitle').innerText = "Sensor Recalibration Warning";
+            document.getElementById('modalMessage').innerText = "Ensure the tank is completely empty or the pipe is in open air before proceeding. Execute baseline tare sequence?";
+            let cBtn = document.getElementById('modalConfirmBtn');
+            cBtn.className = "modal-btn"; cBtn.style.background = "var(--amber-orange)"; cBtn.style.color = "white"; cBtn.innerText = "Execute Tare"; cBtn.onclick = triggerRemoteHardwareTare;
+            document.getElementById('customModal').classList.add('active');
         }
 
-        function commitThresholdToDatabase() {
-            document.getElementById('customModal').classList.remove('active');
-            firebase.database().ref('config/threshold').set(pendingValueToSave)
-                .then(() => {
-                    const btn = document.querySelector('.save-action-button');
-                    btn.innerText = 'Saved!'; btn.style.background = 'var(--success-green)';
-                    setTimeout(() => { btn.innerText = 'Save Level'; btn.style.background = 'var(--accent-blue)'; }, 2000);
-                });
-        }
-
-        // --- HIGH-SPEED NOTIFICATION ENGINE ---
-        function triggerPWAAlertNotification(currentLevel) {
-            let now = Date.now();
-            if (now - lastAlertTime > 15000) { // Safety loop: 15 seconds limit
-                lastAlertTime = now;
-                
-                // Force background service thread to push alert instantly
-                if (window.Notification && Notification.permission === "granted" && serviceWorkerRegistration) {
-                    serviceWorkerRegistration.showNotification("⚠ CRITICAL WATER ALERT", {
-                        body: `Level dropped below safety limit! Current: ${currentLevel.toFixed(1)} cm`,
-                        tag: 'tank-alert',
-                        renotify: true
-                    });
-                }
-            }
-        }
-
-        // --- FIREBASE SYSTEM REAL-TIME DRIVER ---
         const firebaseConfig = { databaseURL: "https://water-level-monitoring-8a0f5-default-rtdb.firebaseio.com/" };
         if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
         const db = firebase.database();
 
-        db.ref('config/threshold').on('value', (snapshot) => {
-            if(snapshot.exists()) {
-                window.userThreshold = snapshot.val();
-                document.getElementById('thresholdInput').value = window.userThreshold.toFixed(1);
-            }
-        });
+        function commitThresholdToDatabase() {
+            closeCustomModal();
+            db.ref('config/threshold').set(pendingValueToSave).then(() => {
+                const btn = document.querySelector('.save-action-button');
+                btn.innerText = 'Saved!'; btn.style.background = 'var(--success-green)';
+                setTimeout(() => { btn.innerText = 'Save Level'; btn.style.background = 'var(--accent-blue)'; }, 2000);
+            });
+        }
 
+        function triggerRemoteHardwareTare() {
+            closeCustomModal();
+            const tareBtn = document.querySelector('.tare-action-button');
+            tareBtn.innerText = "⏳ Calibrating Hardware Node..."; tareBtn.style.borderColor = "var(--text-muted)"; tareBtn.style.color = "var(--text-muted)";
+            
+            db.ref('config/trigger_tare').set(true).then(() => {
+                db.ref('config/trigger_tare').on('value', function diagnostic(snap) {
+                    if(snap.val() === false) {
+                        tareBtn.innerText = "✔ Balancing Complete! Zero Reset."; tareBtn.style.color = "var(--success-green)"; tareBtn.style.borderColor = "var(--success-green)";
+                        db.ref('config/trigger_tare').off('value', diagnostic);
+                        setTimeout(() => { tareBtn.innerText = "🔧 Reset Tank Zero Balance (Auto-Tare)"; tareBtn.style.color = "var(--amber-orange)"; tareBtn.style.borderColor = "var(--amber-orange)"; }, 3500);
+                    }
+                });
+            });
+        }
+
+        db.ref('config/threshold').on('value', (snap) => { if(snap.exists()) { window.userThreshold = snap.val(); document.getElementById('thresholdInput').value = window.userThreshold.toFixed(1); } });
+        
         window.masterDataHistory = []; window.lastPacketReceivedTime = 0;
         const ctx = document.getElementById('waterChart').getContext('2d');
-        window.waterChart = new Chart(ctx, {
-            type: 'line',
-            data: { datasets: [{ label: 'Level (cm)', data: [], borderColor: '#0A84FF', backgroundColor: 'rgba(10, 132, 255, 0.05)', borderWidth: 3, pointRadius: 0, fill: true, tension: 0.4 }] },
-            options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { y: { beginAtZero: true }, x: { type: 'linear', ticks: { maxTicksLimit: 4, callback: function(v) { return new Date(v).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); } } } }, plugins: { legend: { display: false } } }
-        });
+        window.waterChart = new Chart(ctx, { type: 'line', data: { datasets: [{ label: 'Level', data: [], borderColor: '#0A84FF', backgroundColor: 'rgba(10, 132, 255, 0.03)', borderWidth: 3, pointRadius: 0, fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true }, x: { type: 'linear', ticks: { maxTicksLimit: 4, callback: function(v) { return new Date(v).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); } } } }, plugins: { legend: { display: false } } } });
 
-        setInterval(updateChartAxes, 1000);
-        const connectionText = document.getElementById("connectionText");
-        const statusDot = document.getElementById("statusDot");
-        const levelVal = document.getElementById("levelVal");
-        const waterCard = document.getElementById("waterCard");
-
-        db.ref('sensor1').limitToLast(500).on('value', (snapshot) => {
+        db.ref('sensor1').limitToLast(300).on('value', (snapshot) => {
             if (snapshot.exists()) {
                 let tempArray = [];
-                snapshot.forEach((childSnapshot) => {
-                    const data = childSnapshot.val();
-                    if(data && data.timestamp) { tempArray.push({ x: data.timestamp * 1000, y: data.level }); }
-                });
-
+                snapshot.forEach((child) => { const d = child.val(); if(d && d.timestamp) { tempArray.push({ x: d.timestamp * 1000, y: d.level }); } });
                 if(tempArray.length > 0) {
-                    window.masterDataHistory = tempArray; 
+                    window.masterDataHistory = tempArray;
                     const activePoint = tempArray[tempArray.length - 1];
                     window.lastPacketReceivedTime = activePoint.x / 1000;
                     
-                    if ((Date.now() / 1000) - window.lastPacketReceivedTime <= 5) {
-                        connectionText.innerText = "System Online"; statusDot.className = "status-dot active"; 
-                        levelVal.innerHTML = activePoint.y.toFixed(1) + '<span style="font-size:1.5rem; color:var(--text-muted); font-weight:600;"> cm</span>';
-
-                        if (activePoint.y <= window.userThreshold) {
-                            levelVal.style.color = "var(--warning-red)"; waterCard.style.borderColor = "var(--warning-red)"; 
-                            triggerPWAAlertNotification(activePoint.y);
-                        } else {
-                            levelVal.style.color = "var(--text-main)"; waterCard.style.borderColor = "transparent";
-                        }
+                    if ((Date.now() / 1000) - window.lastPacketReceivedTime <= 6) {
+                        document.getElementById("connectionText").innerText = "System Online"; document.getElementById("statusDot").className = "status-dot active";
+                        document.getElementById("levelVal").innerHTML = activePoint.y.toFixed(1) + '<span style="font-size:1.5rem; color:var(--text-muted); font-weight:600;"> cm</span>';
+                        if (activePoint.y <= window.userThreshold) { document.getElementById("levelVal").style.color = "var(--warning-red)"; document.getElementById("waterCard").style.borderColor = "var(--warning-red)"; if(serviceWorkerRegistration) { serviceWorkerRegistration.showNotification("⚠ CRITICAL WATER ALERT", { body: `Tank level dropped to ${activePoint.y.toFixed(1)} cm!`, tag:'alert' }); } } else { document.getElementById("levelVal").style.color = "var(--text-main)"; document.getElementById("waterCard").style.borderColor = "transparent"; }
                     }
-                    updateChartAxes(); 
+                    const now = Date.now(); window.waterChart.options.scales.x.min = now - 3600000; window.waterChart.options.scales.x.max = now; window.waterChart.data.datasets[0].data = tempArray.filter(p => p.x >= (now - 3600000)); window.waterChart.update('none');
                 }
             }
         });
-
-        setInterval(() => {
-            if (window.lastPacketReceivedTime > 0 && (Date.now() / 1000) - window.lastPacketReceivedTime > 4) {
-                connectionText.innerText = "Hardware Offline"; statusDot.className = "status-dot offline"; 
-                levelVal.innerHTML = '--<span style="font-size:1.5rem; color:var(--text-muted);"> cm</span>';
-                levelVal.style.color = "var(--text-main)"; waterCard.style.borderColor = "transparent";
-            }
-        }, 1500);
-
-        function updateChartAxes() {
-            if (!window.waterChart) return;
-            const range = parseInt(document.getElementById('timeRange').value);
-            const now = Date.now(); window.waterChart.options.scales.x.min = now - range; window.waterChart.options.scales.x.max = now;
-            window.waterChart.data.datasets[0].data = window.masterDataHistory.filter(p => p.x >= (now - range));
-            window.waterChart.update('none'); 
-        }
     </script>
 </body>
 </html>
