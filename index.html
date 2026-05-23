@@ -66,6 +66,10 @@
         .btn-cancel { background: rgba(255,255,255,0.1); color: var(--text-main); }
         .btn-confirm { background: var(--accent-blue); color: white; }
 
+        /* RESTORED GRAPH CONTROLS CSS */
+        .graph-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 0 5px;}
+        .graph-title { font-size: 1.2rem; font-weight: 700; }
+        select { background: var(--glass-bg); color: var(--text-main); padding: 8px 12px; border-radius: 10px; border: 1px solid var(--glass-border); font-size: 0.85rem; font-weight: 600; outline: none; }
         .chart-card { padding: 15px; height: 260px; position: relative; margin-bottom: 20px; }
     </style>
 </head>
@@ -117,6 +121,15 @@
             <div class="calibration-divider">
                 <button class="tare-action-button" onclick="openCalibrationModal()">🔧 Reset Tank Zero Balance (Auto-Tare)</button>
             </div>
+        </div>
+
+        <div class="graph-header">
+            <div class="graph-title">Live Timeline</div>
+            <select id="timeRange" onchange="updateChartAxes()">
+                <option value="60000">Past 1 Min</option>
+                <option value="3600000" selected>Past 1 Hour</option>
+                <option value="86400000">Past 1 Day</option>
+            </select>
         </div>
 
         <div class="chart-card glass-panel">
@@ -203,11 +216,32 @@
 
         db.ref('config/threshold').on('value', (snap) => { if(snap.exists()) { window.userThreshold = snap.val(); document.getElementById('thresholdInput').value = window.userThreshold.toFixed(1); } });
         
-        window.masterDataHistory = []; window.lastPacketReceivedTime = 0;
+        // --- RESTORED CHART & OFFLINE LOGIC ---
+        window.masterDataHistory = []; 
+        window.lastPacketReceivedTime = 0;
+        
         const ctx = document.getElementById('waterChart').getContext('2d');
-        window.waterChart = new Chart(ctx, { type: 'line', data: { datasets: [{ label: 'Level', data: [], borderColor: '#0A84FF', backgroundColor: 'rgba(10, 132, 255, 0.03)', borderWidth: 3, pointRadius: 0, fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true }, x: { type: 'linear', ticks: { maxTicksLimit: 4, callback: function(v) { return new Date(v).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); } } } }, plugins: { legend: { display: false } } } });
+        window.waterChart = new Chart(ctx, { 
+            type: 'line', 
+            data: { datasets: [{ label: 'Level', data: [], borderColor: '#0A84FF', backgroundColor: 'rgba(10, 132, 255, 0.03)', borderWidth: 3, pointRadius: 0, fill: true, tension: 0.4 }] }, 
+            options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { y: { beginAtZero: true }, x: { type: 'linear', ticks: { maxTicksLimit: 4, callback: function(v) { return new Date(v).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); } } } }, plugins: { legend: { display: false } } } 
+        });
 
-        db.ref('sensor1').limitToLast(300).on('value', (snapshot) => {
+        // Loop to continuously slide the chart forward based on dropdown
+        setInterval(updateChartAxes, 1000);
+
+        function updateChartAxes() {
+            if (!window.waterChart || window.masterDataHistory.length === 0) return;
+            const range = parseInt(document.getElementById('timeRange').value);
+            const now = Date.now(); 
+            window.waterChart.options.scales.x.min = now - range; 
+            window.waterChart.options.scales.x.max = now;
+            window.waterChart.data.datasets[0].data = window.masterDataHistory.filter(p => p.x >= (now - range));
+            window.waterChart.update('none'); 
+        }
+
+        // Increased data limit to 2000 points so 1-Hour history doesn't disappear
+        db.ref('sensor1').limitToLast(2000).on('value', (snapshot) => {
             if (snapshot.exists()) {
                 let tempArray = [];
                 snapshot.forEach((child) => { const d = child.val(); if(d && d.timestamp) { tempArray.push({ x: d.timestamp * 1000, y: d.level }); } });
@@ -221,10 +255,21 @@
                         document.getElementById("levelVal").innerHTML = activePoint.y.toFixed(1) + '<span style="font-size:1.5rem; color:var(--text-muted); font-weight:600;"> cm</span>';
                         if (activePoint.y <= window.userThreshold) { document.getElementById("levelVal").style.color = "var(--warning-red)"; document.getElementById("waterCard").style.borderColor = "var(--warning-red)"; if(serviceWorkerRegistration) { serviceWorkerRegistration.showNotification("⚠ CRITICAL WATER ALERT", { body: `Tank level dropped to ${activePoint.y.toFixed(1)} cm!`, tag:'alert' }); } } else { document.getElementById("levelVal").style.color = "var(--text-main)"; document.getElementById("waterCard").style.borderColor = "transparent"; }
                     }
-                    const now = Date.now(); window.waterChart.options.scales.x.min = now - 3600000; window.waterChart.options.scales.x.max = now; window.waterChart.data.datasets[0].data = tempArray.filter(p => p.x >= (now - 3600000)); window.waterChart.update('none');
+                    updateChartAxes();
                 }
             }
         });
+
+        // RESTORED OFFLINE HEARTBEAT: Checks every 1.5 seconds if hardware stopped talking
+        setInterval(() => {
+            if (window.lastPacketReceivedTime > 0 && (Date.now() / 1000) - window.lastPacketReceivedTime > 4) {
+                document.getElementById("connectionText").innerText = "Hardware Offline"; 
+                document.getElementById("statusDot").className = "status-dot offline"; 
+                document.getElementById("levelVal").innerHTML = '--<span style="font-size:1.5rem; color:var(--text-muted);"> cm</span>';
+                document.getElementById("levelVal").style.color = "var(--text-main)"; 
+                document.getElementById("waterCard").style.borderColor = "transparent";
+            }
+        }, 1500);
     </script>
 </body>
 </html>
