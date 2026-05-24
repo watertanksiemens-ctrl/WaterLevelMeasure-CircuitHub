@@ -47,20 +47,50 @@
         .water-fill { position: absolute; bottom: 0; left: 0; width: 100%; background: linear-gradient(to top, #0A84FF, #5AC8FA); transition: height 0.8s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 -5px 15px rgba(10, 132, 255, 0.5); }
         .water-surface { position: absolute; top: 0; left: 0; width: 100%; height: 6px; background: rgba(255,255,255,0.3); }
 
+        /* --- THRESHOLD CONTROLS --- */
+        .premium-config-card { padding: 22px; margin-bottom: 20px; border-radius: 24px; }
+        .config-title-block { text-align: left; margin-bottom: 18px; }
+        .config-main-row { display: flex; align-items: center; justify-content: space-between; gap: 15px; }
+        
+        .numeric-stepper-box { display: flex; align-items: center; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 16px; padding: 4px; width: 55%; }
+        .step-btn { background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border); color: var(--text-main); width: 42px; height: 42px; border-radius: 12px; font-size: 1.4rem; font-weight: bold; cursor: pointer; }
+        .config-input { flex-grow: 1; width: 50px; background: transparent; border: none; text-align: center; font-size: 1.3rem; font-weight: 700; color: var(--text-main); outline: none; }
+        .save-action-button { width: 42%; padding: 15px; border-radius: 16px; background: var(--accent-blue); color: #fff; border: none; font-size: 1.05rem; font-weight: 700; cursor: pointer; }
+
         /* --- TOGGLE BUTTON & CALIBRATION UI --- */
         .btn-toggle { background: rgba(255,255,255,0.05); color: var(--text-main); border: 1px solid var(--glass-border); padding: 16px; border-radius: 16px; width: 100%; font-size: 1rem; font-weight: 600; cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; transition: background 0.2s; }
         .btn-toggle:hover { background: rgba(255,255,255,0.1); }
         
-        /* The container that hides the settings */
         .calib-container { display: none; animation: fadeIn 0.3s ease-out forwards; }
         .calib-container.open { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
         .calib-input { width: 100%; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); color: #fff; padding: 12px; border-radius: 10px; font-family: monospace; font-size: 14px; margin-top: 8px; margin-bottom: 15px; }
         .btn-sync { background: var(--amber-orange); color: #fff; border: none; padding: 14px; border-radius: 12px; width: 100%; font-size: 1rem; font-weight: bold; cursor: pointer; }
+
+        /* --- MODAL --- */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5, 10, 20, 0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 2000; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; }
+        .modal-overlay.active { opacity: 1; visibility: visible; }
+        .modal-box { width: 88%; max-width: 360px; padding: 25px; text-align: center; border: 1px solid rgba(255,255,255,0.1); transform: scale(0.9); transition: transform 0.3s ease; }
+        .modal-overlay.active .modal-box { transform: scale(1); }
+        .modal-buttons { display: flex; gap: 12px; justify-content: center; margin-top: 20px; }
+        .modal-btn { flex: 1; padding: 12px; border-radius: 12px; font-weight: 700; font-size: 0.95rem; cursor: pointer; border: none; }
+        .btn-cancel { background: rgba(255,255,255,0.1); color: var(--text-main); }
+        .btn-confirm { background: var(--accent-blue); color: white; }
     </style>
 </head>
 <body>
+
+    <div id="customModal" class="modal-overlay">
+        <div class="modal-box glass-panel">
+            <h3 id="modalTitle">Confirm Action</h3>
+            <p id="modalMessage">Are you sure you want to perform this operation?</p>
+            <div class="modal-buttons">
+                <button class="modal-btn btn-cancel" onclick="closeCustomModal()">Cancel</button>
+                <button id="modalConfirmBtn" class="modal-btn btn-confirm" onclick="">Confirm</button>
+            </div>
+        </div>
+    </div>
 
     <div class="app-container">
         <div class="header">
@@ -88,6 +118,21 @@
             </div>
         </div>
 
+        <div class="premium-config-card glass-panel">
+            <div class="config-title-block">
+                <div class="lbl">Alert Threshold Limit</div>
+                <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 3px; font-weight: 500;">Warnings trigger if level drops below this point.</div>
+            </div>
+            <div class="config-main-row">
+                <div class="numeric-stepper-box">
+                    <button class="step-btn" onclick="adjustValue(-0.5)">−</button>
+                    <input type="number" id="thresholdInput" class="config-input" step="0.5" value="6.0" readonly>
+                    <button class="step-btn" onclick="adjustValue(0.5)">+</button>
+                </div>
+                <button class="save-action-button" onclick="openThresholdModal()">Save Level</button>
+            </div>
+        </div>
+
         <button class="btn-toggle" onclick="toggleCalibration()">
             <span>⚙️ Hardware Calibration Settings</span>
             <span id="toggleIcon">▼</span>
@@ -98,9 +143,9 @@
                 <div class="lbl" style="margin-bottom: 5px; color: var(--amber-orange);">Cloud Sensor Calibration Matrix</div>
                 <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px; line-height: 1.4;">Map your Raw Capacitance values to actual Centimeters. The ESP32 will automatically download these arrays. Separate numbers with commas.</div>
                 
-                <label class="lbl">Raw Capacitance Array (Empty to Full)</label>
-                <input type="text" id="rawArray" class="calib-input" value="19.0, 15.0, 13.0, 11.3, 9.0, 8.0, 7.0, 6.0, 5.0, 4.0">
-                
+                 <label class="lbl">Raw Capacitance Array (Empty to Full)</label>
+                <input type="text" id="rawArray" class="calib-input" value="19.0, 15.0, 13.0, 11.3, 9.0, 8.0, 7.0, 6.0, 5.0, 4.0">        
+
                 <label class="lbl">Target Centimeter Array (Empty to Full)</label>
                 <input type="text" id="cmArray" class="calib-input" value="1.0, 2.0, 3.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 22.0">
                 
@@ -114,7 +159,44 @@
         if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
         const db = firebase.database();
 
-        // UI Toggle Function
+        // --- THRESHOLD LOGIC ---
+        window.userThreshold = 6.0;
+        let pendingValueToSave = 6.0;
+
+        function adjustValue(amount) {
+            const input = document.getElementById('thresholdInput');
+            let current = parseFloat(input.value);
+            if (!isNaN(current)) { input.value = (current + amount).toFixed(1); }
+        }
+
+        function closeCustomModal() { document.getElementById('customModal').classList.remove('active'); }
+
+        function openThresholdModal() {
+            pendingValueToSave = parseFloat(document.getElementById('thresholdInput').value);
+            document.getElementById('modalTitle').innerText = "Confirm Threshold Change";
+            document.getElementById('modalMessage').innerText = `Are you sure you want to change the safety limit to ${pendingValueToSave.toFixed(1)} cm?`;
+            let cBtn = document.getElementById('modalConfirmBtn');
+            cBtn.className = "modal-btn btn-confirm"; cBtn.innerText = "Yes, Save"; cBtn.onclick = commitThresholdToDatabase;
+            document.getElementById('customModal').classList.add('active');
+        }
+
+        function commitThresholdToDatabase() {
+            closeCustomModal();
+            db.ref('config/threshold').set(pendingValueToSave).then(() => {
+                const btn = document.querySelector('.save-action-button');
+                btn.innerText = 'Saved!'; btn.style.background = 'var(--success-green)';
+                setTimeout(() => { btn.innerText = 'Save Level'; btn.style.background = 'var(--accent-blue)'; }, 2000);
+            });
+        }
+
+        db.ref('config/threshold').on('value', (snap) => { 
+            if(snap.exists()) { 
+                window.userThreshold = snap.val(); 
+                document.getElementById('thresholdInput').value = window.userThreshold.toFixed(1); 
+            } 
+        });
+
+        // --- UI TOGGLE FUNCTION ---
         function toggleCalibration() {
             const panel = document.getElementById('calibrationPanel');
             const icon = document.getElementById('toggleIcon');
@@ -127,7 +209,7 @@
             }
         }
 
-        // Load existing arrays from cloud on boot
+        // --- CALIBRATION LOGIC ---
         db.ref('config/calib_raw').once('value', snap => { if(snap.exists()) document.getElementById('rawArray').value = snap.val(); });
         db.ref('config/calib_cm').once('value', snap => { if(snap.exists()) document.getElementById('cmArray').value = snap.val(); });
 
@@ -141,7 +223,6 @@
             db.ref('config/calib_raw').set(raw);
             db.ref('config/calib_cm').set(cm);
             
-            // Trigger ESP32 to download new arrays
             db.ref('config/update_calib').set(true).then(() => {
                 db.ref('config/update_calib').on('value', function check(snap) {
                     if(snap.val() === false) {
@@ -160,21 +241,19 @@
             snapshot.forEach((child) => {
                 const data = child.val();
                 if(data && data.timestamp) {
-                    // Update Texts
                     document.getElementById("connectionText").innerText = "System Online"; 
                     document.getElementById("statusDot").className = "status-dot active";
                     document.getElementById("levelVal").innerText = data.level.toFixed(1);
                     document.getElementById("rawVal").innerText = "Raw Cap: " + data.pressure.toFixed(2);
                     
-                    // Update Tank Animation Height
                     let fillPercentage = (data.level / maxTankCapacityCm) * 100;
                     if(fillPercentage > 100) fillPercentage = 100;
                     if(fillPercentage < 0) fillPercentage = 0;
                     
                     document.getElementById("waterFill").style.height = fillPercentage + "%";
 
-                    // Warning Color Checks
-                    if (data.level <= 6.0) { 
+                    // The dynamic user threshold check
+                    if (data.level <= window.userThreshold) { 
                         document.getElementById("levelVal").style.color = "var(--warning-red)"; 
                         document.getElementById("waterFill").style.background = "linear-gradient(to top, #ff3b30, #ff6b22)";
                         document.getElementById("waterFill").style.boxShadow = "0 -5px 15px rgba(255, 59, 48, 0.5)";
