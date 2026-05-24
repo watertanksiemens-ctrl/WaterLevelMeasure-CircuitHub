@@ -7,6 +7,8 @@
     
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#090f1a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -34,6 +36,9 @@
         .status { color: var(--text-muted); font-size: 0.95rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
         .status-dot { width: 10px; height: 10px; border-radius: 50%; background-color: var(--text-muted); }
         .status-dot.active { background-color: var(--success-green); box-shadow: 0 0 10px var(--success-green); }
+
+        /* --- NOTIFICATION BANNER --- */
+        .permission-banner { padding: 14px; background: rgba(10, 132, 255, 0.1); border: 1px dashed var(--accent-blue); border-radius: 16px; text-align: center; margin-bottom: 20px; font-weight: 600; font-size: 0.9rem; cursor: pointer; color: var(--accent-blue); display: block; }
 
         /* --- DIGITAL TWIN TANK ANIMATION --- */
         .digital-twin-card { display: flex; justify-content: space-between; align-items: center; padding: 30px 20px; }
@@ -101,6 +106,10 @@
             </div>
         </div>
         
+        <div id="permissionRequestBanner" class="permission-banner" onclick="requestBrowserNotificationPermission()">
+            🔔 Tap here to authorize high-speed alerts
+        </div>
+        
         <div class="glass-panel digital-twin-card" id="waterCard">
             <div class="metric-side">
                 <div class="lbl">Live Depth</div>
@@ -143,11 +152,11 @@
                 <div class="lbl" style="margin-bottom: 5px; color: var(--amber-orange);">Cloud Sensor Calibration Matrix</div>
                 <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px; line-height: 1.4;">Map your Raw Capacitance values to actual Centimeters. The ESP32 will automatically download these arrays. Separate numbers with commas.</div>
                 
-                 <label class="lbl">Raw Capacitance Array (Empty to Full)</label>
-                <input type="text" id="rawArray" class="calib-input" value="19.0, 15.0, 13.0, 11.3, 9.0, 8.0, 7.0, 6.0, 5.0, 4.0">        
-
+                <label class="lbl">Raw Capacitance Array (Empty to Full)</label>
+                <input type="text" id="rawArray" class="calib-input" value="19.0, 15.0, 13.0, 11.3, 10.1, 9.0, 8.5, 8.0, 7.5, 7.0, 6.5, 6.0, 5.5, 5.0, 4.8, 4.6, 4.4, 4.2, 4.0, 3.8">
+                
                 <label class="lbl">Target Centimeter Array (Empty to Full)</label>
-                <input type="text" id="cmArray" class="calib-input" value="1.0, 2.0, 3.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 22.0">
+                <input type="text" id="cmArray" class="calib-input" value="1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 20.0, 22.0">
                 
                 <button class="btn-sync" onclick="syncCalibrationToCloud()">☁ Sync Math to Hardware</button>
             </div>
@@ -158,6 +167,29 @@
         const firebaseConfig = { databaseURL: "https://water-level-monitoring-8a0f5-default-rtdb.firebaseio.com/" };
         if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
         const db = firebase.database();
+
+        // --- SERVICE WORKER & NOTIFICATIONS LOGIC ---
+        let serviceWorkerRegistration = null;
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').then(reg => { serviceWorkerRegistration = reg; });
+        }
+
+        if (window.Notification && Notification.permission === "granted") {
+            document.getElementById('permissionRequestBanner').style.display = 'none';
+        }
+
+        function requestBrowserNotificationPermission() {
+            if (!("Notification" in window)) { alert("Unsupported browser environment."); return; }
+            Notification.requestPermission().then((permission) => {
+                if (permission === "granted") {
+                    document.getElementById('permissionRequestBanner').style.display = 'none';
+                    if (serviceWorkerRegistration) { 
+                        serviceWorkerRegistration.showNotification("System Active", { body: "Circuit Hub alerts enabled.", icon: 'https://cdn-icons-png.flaticon.com/512/4214/4214953.png' }); 
+                    }
+                }
+            });
+        }
 
         // --- THRESHOLD LOGIC ---
         window.userThreshold = 6.0;
@@ -252,11 +284,20 @@
                     
                     document.getElementById("waterFill").style.height = fillPercentage + "%";
 
-                    // The dynamic user threshold check
+                    // The dynamic user threshold & NOTIFICATION trigger
                     if (data.level <= window.userThreshold) { 
                         document.getElementById("levelVal").style.color = "var(--warning-red)"; 
                         document.getElementById("waterFill").style.background = "linear-gradient(to top, #ff3b30, #ff6b22)";
                         document.getElementById("waterFill").style.boxShadow = "0 -5px 15px rgba(255, 59, 48, 0.5)";
+                        
+                        // Trigger Background Alert
+                        if(serviceWorkerRegistration && Notification.permission === "granted") { 
+                            serviceWorkerRegistration.showNotification("⚠ CRITICAL WATER ALERT", { 
+                                body: `Tank level dropped to ${data.level.toFixed(1)} cm!`, 
+                                tag: 'alert',
+                                icon: 'https://cdn-icons-png.flaticon.com/512/4214/4214953.png'
+                            }); 
+                        }
                     } else { 
                         document.getElementById("levelVal").style.color = "var(--text-main)"; 
                         document.getElementById("waterFill").style.background = "linear-gradient(to top, #0A84FF, #5AC8FA)";
