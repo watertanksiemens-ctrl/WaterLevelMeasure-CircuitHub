@@ -3,14 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Circuit Hub Dashboard</title>
+    <title>Circuit Hub Digital Twin</title>
     
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#090f1a">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     
@@ -19,7 +16,6 @@
             --bg-gradient: linear-gradient(135deg, #090f1a, #131c2e, #0c1524);
             --glass-bg: rgba(18, 28, 46, 0.45);
             --glass-border: rgba(255, 255, 255, 0.06);
-            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
             --text-main: #f5f5f7;
             --text-muted: #a1a1a6;
             --accent-blue: #0a84ff;
@@ -28,248 +24,151 @@
             --amber-orange: #ff9500;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
         body { background: var(--bg-gradient); color: var(--text-main); padding: 15px; display: flex; justify-content: center; min-height: 100vh; }
-        .app-container { width: 100%; max-width: 500px; padding-top: 10px; position: relative; }
-        .glass-panel { background: var(--glass-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); border-radius: 24px; }
+        .app-container { width: 100%; max-width: 500px; padding-top: 10px; }
+        .glass-panel { background: var(--glass-bg); backdrop-filter: blur(20px); border: 1px solid var(--glass-border); border-radius: 24px; padding: 20px; margin-bottom: 20px; }
         
         .header { margin-bottom: 15px; }
         h1 { font-size: 2.2rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 5px; }
         .status { color: var(--text-muted); font-size: 0.95rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
         .status-dot { width: 10px; height: 10px; border-radius: 50%; background-color: var(--text-muted); }
         .status-dot.active { background-color: var(--success-green); box-shadow: 0 0 10px var(--success-green); }
-        .status-dot.offline { background-color: var(--warning-red); box-shadow: 0 0 10px var(--warning-red); }
 
-        .permission-banner { padding: 14px; background: rgba(10, 132, 255, 0.1); border: 1px dashed var(--accent-blue); border-radius: 16px; text-align: center; margin-bottom: 15px; font-weight: 600; font-size: 0.9rem; cursor: pointer; color: var(--accent-blue); display: block; }
-        .metric-card { padding: 30px 20px; text-align: center; margin-bottom: 20px; border-radius: 24px; }
+        /* --- DIGITAL TWIN TANK ANIMATION --- */
+        .digital-twin-card { display: flex; justify-content: space-between; align-items: center; padding: 30px 20px; }
+        .metric-side { text-align: left; }
         .lbl { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 1.5px; }
-        .val { font-size: 3.5rem; font-weight: 800; margin-top: 5px; color: var(--text-main); letter-spacing: -1.5px; }
+        .val { font-size: 3.8rem; font-weight: 800; margin-top: 5px; color: var(--text-main); letter-spacing: -2px; }
+        .raw-val { font-size: 0.9rem; color: var(--accent-blue); margin-top: 5px; font-weight: 600; }
 
-        .premium-config-card { padding: 22px; margin-bottom: 20px; border-radius: 24px; }
-        .config-title-block { text-align: left; margin-bottom: 18px; }
-        .config-main-row { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 15px; }
-        
-        .numeric-stepper-box { display: flex; align-items: center; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 16px; padding: 4px; width: 55%; }
-        .step-btn { background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border); color: var(--text-main); width: 42px; height: 42px; border-radius: 12px; font-size: 1.4rem; font-weight: bold; cursor: pointer; }
-        .config-input { flex-grow: 1; width: 50px; background: transparent; border: none; text-align: center; font-size: 1.3rem; font-weight: 700; color: var(--text-main); outline: none; }
-        .save-action-button { width: 42%; padding: 15px; border-radius: 16px; background: var(--accent-blue); color: #fff; border: none; font-size: 1.05rem; font-weight: 700; cursor: pointer; }
+        .tank-wrapper { position: relative; width: 110px; height: 220px; }
+        .tank-glass { width: 100%; height: 100%; border: 4px solid rgba(255,255,255,0.15); border-top: none; border-radius: 0 0 20px 20px; position: relative; overflow: hidden; background: rgba(0,0,0,0.3); box-shadow: inset 0 0 20px rgba(0,0,0,0.5); }
+        .water-fill { position: absolute; bottom: 0; left: 0; width: 100%; background: linear-gradient(to top, #0A84FF, #5AC8FA); transition: height 0.8s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 -5px 15px rgba(10, 132, 255, 0.5); }
+        .water-surface { position: absolute; top: 0; left: 0; width: 100%; height: 6px; background: rgba(255,255,255,0.3); }
 
-        .calibration-divider { border-top: 1px solid var(--glass-border); margin-top: 15px; padding-top: 15px; }
-        .tare-action-button { width: 100%; padding: 14px; border-radius: 14px; background: rgba(255, 149, 0, 0.1); border: 1px dashed var(--amber-orange); color: var(--amber-orange); font-size: 0.95rem; font-weight: 700; cursor: pointer; }
-
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5, 10, 20, 0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 2000; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; }
-        .modal-overlay.active { opacity: 1; visibility: visible; }
-        .modal-box { width: 88%; max-width: 360px; padding: 25px; text-align: center; border: 1px solid rgba(255,255,255,0.1); transform: scale(0.9); transition: transform 0.3s ease; }
-        .modal-overlay.active .modal-box { transform: scale(1); }
-        .modal-buttons { display: flex; gap: 12px; justify-content: center; margin-top: 20px; }
-        .modal-btn { flex: 1; padding: 12px; border-radius: 12px; font-weight: 700; font-size: 0.95rem; cursor: pointer; border: none; }
-        .btn-cancel { background: rgba(255,255,255,0.1); color: var(--text-main); }
-        .btn-confirm { background: var(--accent-blue); color: white; }
-
-        /* RESTORED GRAPH CONTROLS CSS */
-        .graph-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 0 5px;}
-        .graph-title { font-size: 1.2rem; font-weight: 700; }
-        select { background: var(--glass-bg); color: var(--text-main); padding: 8px 12px; border-radius: 10px; border: 1px solid var(--glass-border); font-size: 0.85rem; font-weight: 600; outline: none; }
-        .chart-card { padding: 15px; height: 260px; position: relative; margin-bottom: 20px; }
+        /* --- CALIBRATION UI --- */
+        .calib-input { width: 100%; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); color: #fff; padding: 12px; border-radius: 10px; font-family: monospace; font-size: 14px; margin-top: 8px; margin-bottom: 15px; }
+        .btn-sync { background: var(--amber-orange); color: #fff; border: none; padding: 14px; border-radius: 12px; width: 100%; font-size: 1rem; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <div id="customModal" class="modal-overlay">
-        <div class="modal-box glass-panel">
-            <h3 id="modalTitle">Confirm Action</h3>
-            <p id="modalMessage">Are you sure you want to perform this operation?</p>
-            <div class="modal-buttons">
-                <button class="modal-btn btn-cancel" onclick="closeCustomModal()">Cancel</button>
-                <button id="modalConfirmBtn" class="modal-btn btn-confirm" onclick="">Confirm</button>
-            </div>
-        </div>
-    </div>
-
     <div class="app-container">
         <div class="header">
-            <h1>Dashboard</h1>
+            <h1>Circuit Hub</h1>
             <div class="status">
                 <div id="statusDot" class="status-dot"></div>
-                <span id="connectionText">Connecting Telemetry...</span>
+                <span id="connectionText">Waiting for hardware...</span>
             </div>
-        </div>
-
-        <div id="permissionRequestBanner" class="permission-banner" onclick="requestBrowserNotificationPermission()">
-            🔔 Tap here to authorize high-speed alerts
         </div>
         
-        <div class="metric-card glass-panel" id="waterCard">
-            <div class="lbl">Current Level</div>
-            <div id="levelVal" class="val">--<span style="font-size:1.5rem; color:var(--text-muted);"> cm</span></div>
-        </div>
-
-        <div class="premium-config-card glass-panel">
-            <div class="config-title-block">
-                <div class="lbl">Alert Threshold Limit</div>
-                <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 3px; font-weight: 500;">Warnings trigger if level drops below this point.</div>
+        <div class="glass-panel digital-twin-card" id="waterCard">
+            <div class="metric-side">
+                <div class="lbl">Live Depth</div>
+                <div id="levelVal" class="val">--</div>
+                <div style="font-size:1.2rem; color:var(--text-muted); font-weight: 600;">Centimeters</div>
+                <div id="rawVal" class="raw-val">Raw Cap: --</div>
             </div>
-            <div class="config-main-row">
-                <div class="numeric-stepper-box">
-                    <button class="step-btn" onclick="adjustValue(-0.5)">−</button>
-                    <input type="number" id="thresholdInput" class="config-input" step="0.5" value="6.0" readonly>
-                    <button class="step-btn" onclick="adjustValue(0.5)">+</button>
+            
+            <div class="tank-wrapper">
+                <div class="tank-glass">
+                    <div class="water-fill" id="waterFill" style="height: 0%;">
+                        <div class="water-surface"></div>
+                    </div>
                 </div>
-                <button class="save-action-button" onclick="openThresholdModal()">Save Level</button>
-            </div>
-
-            <div class="calibration-divider">
-                <button class="tare-action-button" onclick="openCalibrationModal()">🔧 Reset Tank Zero Balance (Auto-Tare)</button>
             </div>
         </div>
 
-        <div class="graph-header">
-            <div class="graph-title">Live Timeline</div>
-            <select id="timeRange" onchange="updateChartAxes()">
-                <option value="60000">Past 1 Min</option>
-                <option value="3600000" selected>Past 1 Hour</option>
-                <option value="86400000">Past 1 Day</option>
-            </select>
-        </div>
-
-        <div class="chart-card glass-panel">
-            <canvas id="waterChart"></canvas>
+        <div class="glass-panel">
+            <div class="lbl" style="margin-bottom: 5px; color: var(--amber-orange);">Cloud Sensor Calibration Matrix</div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px; line-height: 1.4;">Map your Raw Capacitance values to actual Centimeters. The ESP32 will automatically download these arrays. Separate numbers with commas.</div>
+            
+            <label class="lbl">Raw Capacitance Array (Empty to Full)</label>
+            <input type="text" id="rawArray" class="calib-input" value="19.0, 15.0, 13.0, 11.3, 9.0, 8.0, 7.0, 6.0, 5.0, 4.0">
+            
+            <label class="lbl">Target Centimeter Array (Empty to Full)</label>
+            <input type="text" id="cmArray" class="calib-input" value="1.0, 2.0, 3.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 22.0">
+            
+            <button class="btn-sync" onclick="syncCalibrationToCloud()">☁ Sync Math to Hardware</button>
         </div>
     </div>
 
     <script>
-        window.userThreshold = 6.0;
-        let pendingValueToSave = 6.0;
-        let serviceWorkerRegistration = null;
-
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js').then(reg => { serviceWorkerRegistration = reg; });
-        }
-
-        if (window.Notification && Notification.permission === "granted") {
-            document.getElementById('permissionRequestBanner').style.display = 'none';
-        }
-
-        function requestBrowserNotificationPermission() {
-            if (!("Notification" in window)) { alert("Unsupported browser environment."); return; }
-            Notification.requestPermission().then((permission) => {
-                if (permission === "granted") {
-                    document.getElementById('permissionRequestBanner').style.display = 'none';
-                    if (serviceWorkerRegistration) { serviceWorkerRegistration.showNotification("System Active", { body: "Circuit Hub tracking initialized." }); }
-                }
-            });
-        }
-
-        function adjustValue(amount) {
-            const input = document.getElementById('thresholdInput');
-            let current = parseFloat(input.value);
-            if (!isNaN(current)) { input.value = (current + amount).toFixed(1); }
-        }
-
-        function closeCustomModal() { document.getElementById('customModal').classList.remove('active'); }
-
-        function openThresholdModal() {
-            pendingValueToSave = parseFloat(document.getElementById('thresholdInput').value);
-            document.getElementById('modalTitle').innerText = "Confirm Threshold Change";
-            document.getElementById('modalMessage').innerText = `Are you sure you want to change the safety limit to ${pendingValueToSave.toFixed(1)} cm?`;
-            let cBtn = document.getElementById('modalConfirmBtn');
-            cBtn.className = "modal-btn btn-confirm"; cBtn.innerText = "Yes, Save"; cBtn.onclick = commitThresholdToDatabase;
-            document.getElementById('customModal').classList.add('active');
-        }
-
-        function openCalibrationModal() {
-            document.getElementById('modalTitle').innerText = "Sensor Recalibration Warning";
-            document.getElementById('modalMessage').innerText = "Ensure the tank is completely empty or the pipe is in open air before proceeding. Execute baseline tare sequence?";
-            let cBtn = document.getElementById('modalConfirmBtn');
-            cBtn.className = "modal-btn"; cBtn.style.background = "var(--amber-orange)"; cBtn.style.color = "white"; cBtn.innerText = "Execute Tare"; cBtn.onclick = triggerRemoteHardwareTare;
-            document.getElementById('customModal').classList.add('active');
-        }
-
         const firebaseConfig = { databaseURL: "https://water-level-monitoring-8a0f5-default-rtdb.firebaseio.com/" };
         if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
         const db = firebase.database();
 
-        function commitThresholdToDatabase() {
-            closeCustomModal();
-            db.ref('config/threshold').set(pendingValueToSave).then(() => {
-                const btn = document.querySelector('.save-action-button');
-                btn.innerText = 'Saved!'; btn.style.background = 'var(--success-green)';
-                setTimeout(() => { btn.innerText = 'Save Level'; btn.style.background = 'var(--accent-blue)'; }, 2000);
-            });
-        }
+        // Load existing arrays from cloud on boot
+        db.ref('config/calib_raw').once('value', snap => { if(snap.exists()) document.getElementById('rawArray').value = snap.val(); });
+        db.ref('config/calib_cm').once('value', snap => { if(snap.exists()) document.getElementById('cmArray').value = snap.val(); });
 
-        function triggerRemoteHardwareTare() {
-            closeCustomModal();
-            const tareBtn = document.querySelector('.tare-action-button');
-            tareBtn.innerText = "⏳ Calibrating Hardware Node..."; tareBtn.style.borderColor = "var(--text-muted)"; tareBtn.style.color = "var(--text-muted)";
+        function syncCalibrationToCloud() {
+            const btn = document.querySelector('.btn-sync');
+            btn.innerText = "⏳ Pushing to ESP32...";
             
-            db.ref('config/trigger_tare').set(true).then(() => {
-                db.ref('config/trigger_tare').on('value', function diagnostic(snap) {
+            const raw = document.getElementById('rawArray').value;
+            const cm = document.getElementById('cmArray').value;
+            
+            db.ref('config/calib_raw').set(raw);
+            db.ref('config/calib_cm').set(cm);
+            
+            // Trigger ESP32 to download new arrays
+            db.ref('config/update_calib').set(true).then(() => {
+                db.ref('config/update_calib').on('value', function check(snap) {
                     if(snap.val() === false) {
-                        tareBtn.innerText = "✔ Balancing Complete! Zero Reset."; tareBtn.style.color = "var(--success-green)"; tareBtn.style.borderColor = "var(--success-green)";
-                        db.ref('config/trigger_tare').off('value', diagnostic);
-                        setTimeout(() => { tareBtn.innerText = "🔧 Reset Tank Zero Balance (Auto-Tare)"; tareBtn.style.color = "var(--amber-orange)"; tareBtn.style.borderColor = "var(--amber-orange)"; }, 3500);
+                        btn.innerText = "✔ Hardware Successfully Synchronized";
+                        btn.style.background = "var(--success-green)";
+                        db.ref('config/update_calib').off('value', check);
+                        setTimeout(() => { btn.innerText = "☁ Sync Math to Hardware"; btn.style.background = "var(--amber-orange)"; }, 3000);
                     }
                 });
             });
         }
 
-        db.ref('config/threshold').on('value', (snap) => { if(snap.exists()) { window.userThreshold = snap.val(); document.getElementById('thresholdInput').value = window.userThreshold.toFixed(1); } });
-        
-        // --- RESTORED CHART & OFFLINE LOGIC ---
-        window.masterDataHistory = []; 
-        window.lastPacketReceivedTime = 0;
-        
-        const ctx = document.getElementById('waterChart').getContext('2d');
-        window.waterChart = new Chart(ctx, { 
-            type: 'line', 
-            data: { datasets: [{ label: 'Level', data: [], borderColor: '#0A84FF', backgroundColor: 'rgba(10, 132, 255, 0.03)', borderWidth: 3, pointRadius: 0, fill: true, tension: 0.4 }] }, 
-            options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { y: { beginAtZero: true }, x: { type: 'linear', ticks: { maxTicksLimit: 4, callback: function(v) { return new Date(v).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); } } } }, plugins: { legend: { display: false } } } 
-        });
+        const maxTankCapacityCm = 25.0; // The top of the graphic
 
-        // Loop to continuously slide the chart forward based on dropdown
-        setInterval(updateChartAxes, 1000);
-
-        function updateChartAxes() {
-            if (!window.waterChart || window.masterDataHistory.length === 0) return;
-            const range = parseInt(document.getElementById('timeRange').value);
-            const now = Date.now(); 
-            window.waterChart.options.scales.x.min = now - range; 
-            window.waterChart.options.scales.x.max = now;
-            window.waterChart.data.datasets[0].data = window.masterDataHistory.filter(p => p.x >= (now - range));
-            window.waterChart.update('none'); 
-        }
-
-        // Increased data limit to 2000 points so 1-Hour history doesn't disappear
-        db.ref('sensor1').limitToLast(2000).on('value', (snapshot) => {
-            if (snapshot.exists()) {
-                let tempArray = [];
-                snapshot.forEach((child) => { const d = child.val(); if(d && d.timestamp) { tempArray.push({ x: d.timestamp * 1000, y: d.level }); } });
-                if(tempArray.length > 0) {
-                    window.masterDataHistory = tempArray;
-                    const activePoint = tempArray[tempArray.length - 1];
-                    window.lastPacketReceivedTime = activePoint.x / 1000;
+        db.ref('sensor1').limitToLast(1).on('value', (snapshot) => {
+            snapshot.forEach((child) => {
+                const data = child.val();
+                if(data && data.timestamp) {
+                    // Update Texts
+                    document.getElementById("connectionText").innerText = "System Online"; 
+                    document.getElementById("statusDot").className = "status-dot active";
+                    document.getElementById("levelVal").innerText = data.level.toFixed(1);
+                    document.getElementById("rawVal").innerText = "Raw Cap: " + data.pressure.toFixed(2);
                     
-                    if ((Date.now() / 1000) - window.lastPacketReceivedTime <= 6) {
-                        document.getElementById("connectionText").innerText = "System Online"; document.getElementById("statusDot").className = "status-dot active";
-                        document.getElementById("levelVal").innerHTML = activePoint.y.toFixed(1) + '<span style="font-size:1.5rem; color:var(--text-muted); font-weight:600;"> cm</span>';
-                        if (activePoint.y <= window.userThreshold) { document.getElementById("levelVal").style.color = "var(--warning-red)"; document.getElementById("waterCard").style.borderColor = "var(--warning-red)"; if(serviceWorkerRegistration) { serviceWorkerRegistration.showNotification("⚠ CRITICAL WATER ALERT", { body: `Tank level dropped to ${activePoint.y.toFixed(1)} cm!`, tag:'alert' }); } } else { document.getElementById("levelVal").style.color = "var(--text-main)"; document.getElementById("waterCard").style.borderColor = "transparent"; }
+                    // Update Tank Animation Height
+                    let fillPercentage = (data.level / maxTankCapacityCm) * 100;
+                    if(fillPercentage > 100) fillPercentage = 100;
+                    if(fillPercentage < 0) fillPercentage = 0;
+                    
+                    document.getElementById("waterFill").style.height = fillPercentage + "%";
+
+                    // Warning Color Checks
+                    if (data.level <= 6.0) { 
+                        document.getElementById("levelVal").style.color = "var(--warning-red)"; 
+                        document.getElementById("waterFill").style.background = "linear-gradient(to top, #ff3b30, #ff6b22)";
+                        document.getElementById("waterFill").style.boxShadow = "0 -5px 15px rgba(255, 59, 48, 0.5)";
+                    } else { 
+                        document.getElementById("levelVal").style.color = "var(--text-main)"; 
+                        document.getElementById("waterFill").style.background = "linear-gradient(to top, #0A84FF, #5AC8FA)";
+                        document.getElementById("waterFill").style.boxShadow = "0 -5px 15px rgba(10, 132, 255, 0.5)";
                     }
-                    updateChartAxes();
                 }
-            }
+            });
         });
 
-        // RESTORED OFFLINE HEARTBEAT: Checks every 1.5 seconds if hardware stopped talking
+        // Offline Check
+        let lastTime = 0;
+        db.ref('sensor1').limitToLast(1).on('value', snap => { snap.forEach(c => { lastTime = Date.now()/1000; }); });
         setInterval(() => {
-            if (window.lastPacketReceivedTime > 0 && (Date.now() / 1000) - window.lastPacketReceivedTime > 4) {
+            if (lastTime > 0 && (Date.now() / 1000) - lastTime > 6) {
                 document.getElementById("connectionText").innerText = "Hardware Offline"; 
-                document.getElementById("statusDot").className = "status-dot offline"; 
-                document.getElementById("levelVal").innerHTML = '--<span style="font-size:1.5rem; color:var(--text-muted);"> cm</span>';
-                document.getElementById("levelVal").style.color = "var(--text-main)"; 
-                document.getElementById("waterCard").style.borderColor = "transparent";
+                document.getElementById("statusDot").className = "status-dot"; 
+                document.getElementById("statusDot").style.backgroundColor = "var(--warning-red)";
             }
-        }, 1500);
+        }, 2000);
     </script>
 </body>
 </html>
