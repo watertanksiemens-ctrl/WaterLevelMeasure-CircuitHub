@@ -28,14 +28,23 @@
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
         body { background: var(--bg-gradient); color: var(--text-main); padding: 15px; display: flex; justify-content: center; min-height: 100vh; }
-        .app-container { width: 100%; max-width: 500px; padding-top: 10px; }
+        
+        .app-container { width: 100%; max-width: 500px; padding-top: 10px; display: none; /* Hidden until login */ }
         .glass-panel { background: var(--glass-bg); backdrop-filter: blur(20px); border: 1px solid var(--glass-border); border-radius: 24px; padding: 20px; margin-bottom: 20px; }
         
         .header { margin-bottom: 15px; }
-        h1 { font-size: 2.2rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 5px; }
+        
+        /* --- LOGO STYLING --- */
+        .brand-logo { max-width: 200px; max-height: 45px; object-fit: contain; margin-bottom: 10px; }
+
         .status { color: var(--text-muted); font-size: 0.95rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
         .status-dot { width: 10px; height: 10px; border-radius: 50%; background-color: var(--text-muted); }
         .status-dot.active { background-color: var(--success-green); box-shadow: 0 0 10px var(--success-green); }
+
+        /* --- LOGIN SCREEN --- */
+        .login-overlay { position: fixed; inset: 0; background: var(--bg-gradient); z-index: 9999; display: flex; justify-content: center; align-items: center; padding: 20px; }
+        .login-box { width: 100%; max-width: 350px; text-align: center; }
+        .login-input { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); color: #fff; padding: 15px; border-radius: 12px; font-size: 16px; margin: 20px 0; text-align: center; }
 
         /* --- NOTIFICATION BANNER --- */
         .permission-banner { padding: 14px; background: rgba(10, 132, 255, 0.1); border: 1px dashed var(--accent-blue); border-radius: 16px; text-align: center; margin-bottom: 20px; font-weight: 600; font-size: 0.9rem; cursor: pointer; color: var(--accent-blue); display: block; }
@@ -56,21 +65,19 @@
         .premium-config-card { padding: 22px; margin-bottom: 20px; border-radius: 24px; }
         .config-title-block { text-align: left; margin-bottom: 18px; }
         .config-main-row { display: flex; align-items: center; justify-content: space-between; gap: 15px; }
-        
         .numeric-stepper-box { display: flex; align-items: center; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 16px; padding: 4px; width: 55%; }
         .step-btn { background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border); color: var(--text-main); width: 42px; height: 42px; border-radius: 12px; font-size: 1.4rem; font-weight: bold; cursor: pointer; }
         .config-input { flex-grow: 1; width: 50px; background: transparent; border: none; text-align: center; font-size: 1.3rem; font-weight: 700; color: var(--text-main); outline: none; }
         .save-action-button { width: 42%; padding: 15px; border-radius: 16px; background: var(--accent-blue); color: #fff; border: none; font-size: 1.05rem; font-weight: 700; cursor: pointer; }
 
         /* --- TOGGLE BUTTON & CALIBRATION UI --- */
+        #adminOnlySection { display: none; /* Hidden by default until Admin login */ }
         .btn-toggle { background: rgba(255,255,255,0.05); color: var(--text-main); border: 1px solid var(--glass-border); padding: 16px; border-radius: 16px; width: 100%; font-size: 1rem; font-weight: 600; cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; transition: background 0.2s; }
-        .btn-toggle:hover { background: rgba(255,255,255,0.1); }
-        
         .calib-container { display: none; animation: fadeIn 0.3s ease-out forwards; }
         .calib-container.open { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
-        .calib-input { width: 100%; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); color: #fff; padding: 12px; border-radius: 10px; font-family: monospace; font-size: 14px; margin-top: 8px; margin-bottom: 15px; }
+        .calib-input-box { width: 100%; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); color: #fff; padding: 12px; border-radius: 10px; font-family: monospace; font-size: 14px; margin-top: 8px; margin-bottom: 15px; }
         .btn-sync { background: var(--amber-orange); color: #fff; border: none; padding: 14px; border-radius: 12px; width: 100%; font-size: 1rem; font-weight: bold; cursor: pointer; }
 
         /* --- MODAL --- */
@@ -86,6 +93,17 @@
 </head>
 <body>
 
+    <div id="loginOverlay" class="login-overlay">
+        <div class="glass-panel login-box">
+            <img src="https://via.placeholder.com/200x50/090f1a/ffffff?text=YOUR+LOGO+HERE" alt="Company Logo" class="brand-logo">
+            
+            <div class="lbl" style="margin-top: 10px;">System Authentication</div>
+            <input type="password" id="passwordInput" class="login-input" placeholder="Enter Access Code">
+            <button class="btn-sync" style="background: var(--accent-blue);" onclick="attemptLogin()">Login</button>
+            <div id="loginError" style="color: var(--warning-red); margin-top: 15px; font-weight: bold; display: none;">Invalid Code</div>
+        </div>
+    </div>
+
     <div id="customModal" class="modal-overlay">
         <div class="modal-box glass-panel">
             <h3 id="modalTitle">Confirm Action</h3>
@@ -97,9 +115,9 @@
         </div>
     </div>
 
-    <div class="app-container">
+    <div class="app-container" id="mainDashboard">
         <div class="header">
-            <h1>Circuit Hub</h1>
+            <img src="https://via.placeholder.com/200x50/090f1a/ffffff?text=YOUR+LOGO+HERE" alt="Company Logo" class="brand-logo">
             <div class="status">
                 <div id="statusDot" class="status-dot"></div>
                 <span id="connectionText">Waiting for hardware...</span>
@@ -142,43 +160,66 @@
             </div>
         </div>
 
-        <button class="btn-toggle" onclick="toggleCalibration()">
-            <span>⚙️ Hardware Calibration Settings</span>
-            <span id="toggleIcon">▼</span>
-        </button>
+        <div id="adminOnlySection">
+            <button class="btn-toggle" onclick="toggleCalibration()">
+                <span>⚙️ Hardware Calibration Settings</span>
+                <span id="toggleIcon">▼</span>
+            </button>
 
-        <div class="calib-container" id="calibrationPanel">
-            <div class="glass-panel">
-                <div class="lbl" style="margin-bottom: 5px; color: var(--amber-orange);">Cloud Sensor Calibration Matrix</div>
-                <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px; line-height: 1.4;">Map your Raw Capacitance values to actual Centimeters. The ESP32 will automatically download these arrays. Separate numbers with commas.</div>
-                
-                <label class="lbl">Raw Capacitance Array (Empty to Full)</label>
-                <input type="text" id="rawArray" class="calib-input" value="19.0, 15.0, 13.0, 11.3, 10.1, 9.0, 8.5, 8.0, 7.5, 7.0, 6.5, 6.0, 5.5, 5.0, 4.8, 4.6, 4.4, 4.2, 4.0, 3.8">
-                
-                <label class="lbl">Target Centimeter Array (Empty to Full)</label>
-                <input type="text" id="cmArray" class="calib-input" value="1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 20.0, 22.0">
-                
-                <button class="btn-sync" onclick="syncCalibrationToCloud()">☁ Sync Math to Hardware</button>
+            <div class="calib-container" id="calibrationPanel">
+                <div class="glass-panel">
+                    <div class="lbl" style="margin-bottom: 5px; color: var(--amber-orange);">Cloud Sensor Calibration Matrix</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px; line-height: 1.4;">Map your Raw Capacitance values to actual Centimeters. The ESP32 will automatically download these arrays.</div>
+                    
+                    <label class="lbl">Raw Capacitance Array (Empty to Full)</label>
+                    <input type="text" id="rawArray" class="calib-input-box" value="19.0, 15.0, 13.0, 11.3, 10.1, 9.0, 8.5, 8.0, 7.5, 7.0, 6.5, 6.0, 5.5, 5.0, 4.8, 4.6, 4.4, 4.2, 4.0, 3.8">
+                    
+                    <label class="lbl">Target Centimeter Array (Empty to Full)</label>
+                    <input type="text" id="cmArray" class="calib-input-box" value="1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 20.0, 22.0">
+                    
+                    <button class="btn-sync" onclick="syncCalibrationToCloud()">☁ Sync Math to Hardware</button>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
+        // --- LOGIN & ROLE LOGIC ---
+        function attemptLogin() {
+            const pass = document.getElementById('passwordInput').value;
+            const errorText = document.getElementById('loginError');
+            
+            // SET YOUR PASSWORDS HERE:
+            const USER_PASSWORD = "user123";
+            const ADMIN_PASSWORD = "admin123";
+
+            if (pass === ADMIN_PASSWORD) {
+                // Admin gets everything
+                document.getElementById('loginOverlay').style.display = 'none';
+                document.getElementById('mainDashboard').style.display = 'block';
+                document.getElementById('adminOnlySection').style.display = 'block';
+            } else if (pass === USER_PASSWORD) {
+                // User gets dashboard, but NO calibration settings
+                document.getElementById('loginOverlay').style.display = 'none';
+                document.getElementById('mainDashboard').style.display = 'block';
+                document.getElementById('adminOnlySection').style.display = 'none';
+            } else {
+                errorText.style.display = 'block';
+            }
+        }
+
         const firebaseConfig = { databaseURL: "https://water-level-monitoring-8a0f5-default-rtdb.firebaseio.com/" };
         if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
         const db = firebase.database();
 
         // --- SERVICE WORKER & NOTIFICATIONS LOGIC ---
         let serviceWorkerRegistration = null;
-
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js').then(reg => { serviceWorkerRegistration = reg; });
         }
-
         if (window.Notification && Notification.permission === "granted") {
             document.getElementById('permissionRequestBanner').style.display = 'none';
         }
-
         function requestBrowserNotificationPermission() {
             if (!("Notification" in window)) { alert("Unsupported browser environment."); return; }
             Notification.requestPermission().then((permission) => {
@@ -194,15 +235,12 @@
         // --- THRESHOLD LOGIC ---
         window.userThreshold = 6.0;
         let pendingValueToSave = 6.0;
-
         function adjustValue(amount) {
             const input = document.getElementById('thresholdInput');
             let current = parseFloat(input.value);
             if (!isNaN(current)) { input.value = (current + amount).toFixed(1); }
         }
-
         function closeCustomModal() { document.getElementById('customModal').classList.remove('active'); }
-
         function openThresholdModal() {
             pendingValueToSave = parseFloat(document.getElementById('thresholdInput').value);
             document.getElementById('modalTitle').innerText = "Confirm Threshold Change";
@@ -211,7 +249,6 @@
             cBtn.className = "modal-btn btn-confirm"; cBtn.innerText = "Yes, Save"; cBtn.onclick = commitThresholdToDatabase;
             document.getElementById('customModal').classList.add('active');
         }
-
         function commitThresholdToDatabase() {
             closeCustomModal();
             db.ref('config/threshold').set(pendingValueToSave).then(() => {
@@ -220,7 +257,6 @@
                 setTimeout(() => { btn.innerText = 'Save Level'; btn.style.background = 'var(--accent-blue)'; }, 2000);
             });
         }
-
         db.ref('config/threshold').on('value', (snap) => { 
             if(snap.exists()) { 
                 window.userThreshold = snap.val(); 
@@ -248,13 +284,10 @@
         function syncCalibrationToCloud() {
             const btn = document.querySelector('.btn-sync');
             btn.innerText = "⏳ Pushing to ESP32...";
-            
             const raw = document.getElementById('rawArray').value;
             const cm = document.getElementById('cmArray').value;
-            
             db.ref('config/calib_raw').set(raw);
             db.ref('config/calib_cm').set(cm);
-            
             db.ref('config/update_calib').set(true).then(() => {
                 db.ref('config/update_calib').on('value', function check(snap) {
                     if(snap.val() === false) {
