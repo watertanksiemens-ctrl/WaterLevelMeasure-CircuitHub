@@ -306,8 +306,13 @@
             snapshot.forEach((child) => {
                 const data = child.val();
                 if(data && data.timestamp) {
-                    document.getElementById("connectionText").innerText = "System Online"; 
+                   document.getElementById("connectionText").innerText = "System Online"; 
                     document.getElementById("statusDot").className = "status-dot active";
+
+// --- THE FIX: Wipe away the leftover offline red color so the green class can shine! ---
+                    document.getElementById("statusDot").style.backgroundColor = "";
+                    document.getElementById("statusDot").style.boxShadow = "";
+
                     document.getElementById("levelVal").innerText = data.level.toFixed(1);
                     document.getElementById("rawVal").innerText = "Raw Cap: " + data.pressure.toFixed(2);
                     
