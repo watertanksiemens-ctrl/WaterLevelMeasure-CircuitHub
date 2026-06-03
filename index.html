@@ -186,27 +186,31 @@
     <script>
         // --- LOGIN & ROLE LOGIC ---
         function attemptLogin() {
-            const pass = document.getElementById('passwordInput').value;
-            const errorText = document.getElementById('loginError');
-            
-            // SET YOUR PASSWORDS HERE:
-            const USER_PASSWORD = "user123";
-            const ADMIN_PASSWORD = "admin123";
+    const pass = document.getElementById('passwordInput').value;
+    const errorText = document.getElementById('loginError');
+    
+    // SET YOUR PASSWORDS HERE:
+    const USER_PASSWORD = "user123";
+    const ADMIN_PASSWORD = "admin123";
 
-            if (pass === ADMIN_PASSWORD) {
-                // Admin gets everything
-                document.getElementById('loginOverlay').style.display = 'none';
-                document.getElementById('mainDashboard').style.display = 'block';
-                document.getElementById('adminOnlySection').style.display = 'block';
-            } else if (pass === USER_PASSWORD) {
-                // User gets dashboard, but NO calibration settings
-                document.getElementById('loginOverlay').style.display = 'none';
-                document.getElementById('mainDashboard').style.display = 'block';
-                document.getElementById('adminOnlySection').style.display = 'none';
-            } else {
-                errorText.style.display = 'block';
-            }
-        }
+    if (pass === ADMIN_PASSWORD) {
+        // Admin gets everything (Including Calibration and Raw Cap)
+        document.getElementById('loginOverlay').style.display = 'none';
+        document.getElementById('mainDashboard').style.display = 'block';
+        document.getElementById('adminOnlySection').style.display = 'block';
+        document.getElementById('rawVal').style.display = 'block'; // SHOW RAW CAP
+        
+    } else if (pass === USER_PASSWORD) {
+        // User gets dashboard, but NO calibration and NO Raw Cap
+        document.getElementById('loginOverlay').style.display = 'none';
+        document.getElementById('mainDashboard').style.display = 'block';
+        document.getElementById('adminOnlySection').style.display = 'none';
+        document.getElementById('rawVal').style.display = 'none'; // HIDE RAW CAP
+        
+    } else {
+        errorText.style.display = 'block';
+    }
+}
 
         const firebaseConfig = { databaseURL: "https://water-level-monitoring-8a0f5-default-rtdb.firebaseio.com/" };
         if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
